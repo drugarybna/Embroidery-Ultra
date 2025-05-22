@@ -27,6 +27,15 @@ public class EmbroideryApp extends Application {
 
         drawGrid(gc);
 
+        canvas.setOnMouseClicked(e -> {
+            int col = (int)(e.getX() / cellSize);
+            int row = (int)(e.getY() / cellSize);
+            if (row >= 0 && row < rows && col >= 0 && col < cols) {
+                grid[row][col] = currentColor;
+                drawGrid(gc);
+            }
+        });
+
         ColorPicker colorPicker = new ColorPicker(Color.RED);
         colorPicker.setOnAction(event -> currentColor = colorPicker.getValue());
 
