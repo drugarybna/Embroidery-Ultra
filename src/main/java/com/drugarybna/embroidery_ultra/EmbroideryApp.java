@@ -5,6 +5,7 @@ import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.Button;
 import javafx.scene.control.ColorPicker;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
@@ -12,9 +13,9 @@ import javafx.stage.Stage;
 
 public class EmbroideryApp extends Application {
 
-    private final int rows = 20;
-    private final int cols = 20;
-    private final int cellSize = 20;
+    private final int rows = 32;
+    private final int cols = 32;
+    private final int cellSize = 16;
 
     Color[][] grid = new Color[rows][cols];
     Color currentColor = Color.RED;
@@ -26,6 +27,40 @@ public class EmbroideryApp extends Application {
         GraphicsContext gc = canvas.getGraphicsContext2D();
 
         drawGrid(gc);
+
+        VBox canvasPane = new VBox(canvas);
+        canvasPane.setPadding(new Insets(20, 20, 0, 0));
+
+        Button exportPNG = new Button("Export PNG");
+        exportPNG.setOnAction(e -> {
+
+        });
+        Button exportEMB = new Button("Export EMB");
+        exportEMB.setOnAction(e -> {
+
+        });
+        Button importEMB = new Button("Import EMB");
+        importEMB.setOnAction(e -> {
+
+        });
+        Button resetButton = new Button("Reset");
+        resetButton.setOnAction(e -> {
+            grid = new Color[rows][cols];
+            gc.clearRect(0, 0, cols * cellSize, rows * cellSize);
+            for (int row = 0; row < rows; row++) {
+                for (int col = 0; col < cols; col++) {
+                    gc.setStroke(Color.GRAY);
+                    gc.strokeRect(col * cellSize, row * cellSize, cellSize, cellSize);
+                }
+            }
+        });
+
+        HBox buttonPane = new HBox(exportPNG, exportEMB, importEMB);
+        buttonPane.setSpacing(10);
+        BorderPane buttonPaneRoot = new BorderPane(buttonPane);
+        buttonPaneRoot.setRight(resetButton);
+        buttonPaneRoot.setPadding(new Insets(20, 0, 0, 0));
+        canvasPane.getChildren().add(buttonPaneRoot);
 
         canvas.setOnMouseClicked(e -> {
             int col = (int)(e.getX() / cellSize);
@@ -40,13 +75,15 @@ public class EmbroideryApp extends Application {
         colorPicker.setOnAction(event -> currentColor = colorPicker.getValue());
 
         VBox tools = new VBox(colorPicker);
+        tools.setPadding(new Insets(20, 10, 10, 10));
+
         BorderPane root = new BorderPane();
-        root.setTop(tools);
-        root.setCenter(canvas);
+        root.setLeft(tools);
+        root.setRight(canvasPane);
 
         Scene scene = new Scene(root, 800, 600);
 
-        stage.setTitle("Embroidery Ultra");
+        stage.setTitle("Embroidery Ultra by Volodymyr 'drugarybna' Stepanov");
         stage.setScene(scene);
         stage.show();
 
