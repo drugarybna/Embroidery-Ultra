@@ -21,59 +21,19 @@ public class EmbroideryApp extends Application {
     private final int cols = 32;
     private final int cellSize = 16;
 
-    Color[][] grid = new Color[rows][cols];
+    Color[][] loadedPreset;
     Color currentColor = Color.RED;
+
+    Color[][] selectedBrush = {
+            {null, null, null},
+            {null, Color.RED, null},
+            {null, null, null}
+    };
+
+    String selectedSymmetry = "Horizontal";
 
     @Override
     public void start(Stage stage) throws Exception {
-
-        Canvas canvas = new Canvas(cols * cellSize, rows * cellSize);
-        GraphicsContext gc = canvas.getGraphicsContext2D();
-
-        drawGrid(gc);
-
-        VBox canvasPane = new VBox(canvas);
-        canvasPane.setPadding(new Insets(20, 20, 0, 0));
-
-        Button exportPNG = new Button("Export PNG");
-        exportPNG.setOnAction(e -> {
-
-        });
-        Button exportEMB = new Button("Export EMB");
-        exportEMB.setOnAction(e -> {
-
-        });
-        Button importEMB = new Button("Import EMB");
-        importEMB.setOnAction(e -> {
-
-        });
-        Button resetButton = new Button("Reset");
-        resetButton.setOnAction(e -> {
-            grid = new Color[rows][cols];
-            gc.clearRect(0, 0, cols * cellSize, rows * cellSize);
-            for (int row = 0; row < rows; row++) {
-                for (int col = 0; col < cols; col++) {
-                    gc.setStroke(Color.GRAY);
-                    gc.strokeRect(col * cellSize, row * cellSize, cellSize, cellSize);
-                }
-            }
-        });
-
-        HBox buttonPane = new HBox(exportPNG, exportEMB, importEMB);
-        buttonPane.setSpacing(10);
-        BorderPane buttonPaneRoot = new BorderPane(buttonPane);
-        buttonPaneRoot.setRight(resetButton);
-        buttonPaneRoot.setPadding(new Insets(20, 0, 0, 0));
-        canvasPane.getChildren().add(buttonPaneRoot);
-
-        canvas.setOnMouseClicked(e -> {
-            int col = (int)(e.getX() / cellSize);
-            int row = (int)(e.getY() / cellSize);
-            if (row >= 0 && row < rows && col >= 0 && col < cols) {
-                grid[row][col] = currentColor;
-                drawGrid(gc);
-            }
-        });
 
         ColorPicker colorPicker = new ColorPicker(Color.RED);
         colorPicker.setOnAction(event -> currentColor = colorPicker.getValue());
@@ -84,12 +44,8 @@ public class EmbroideryApp extends Application {
         symmetryType.setDisable(true);
         symmetryType.getItems().addAll("Horizontal", "Vertical");
         symmetryType.setValue("Horizontal");
-        symmetrySwitch.setOnAction(e -> {
-            symmetryType.setDisable(!symmetrySwitch.isSelected());
-        });
-        symmetryType.setOnAction(event -> {
-
-        });
+        symmetrySwitch.setOnAction(e -> symmetryType.setDisable(!symmetrySwitch.isSelected()) );
+        symmetryType.setOnAction(event -> selectedSymmetry = symmetryType.getValue() );
 
         VBox symmetryPane = new VBox(symmetrySwitch, symmetryType);
         symmetryPane.setSpacing(10);
@@ -109,6 +65,43 @@ public class EmbroideryApp extends Application {
         VBox tools = new VBox(colorPicker, symmetryPane, brushTypePane);
         tools.setPadding(new Insets(20, 0, 0, 20));
         tools.setSpacing(20);
+
+        Canvas canvas = new Canvas(cols * cellSize, rows * cellSize);
+        GraphicsContext gc = canvas.getGraphicsContext2D();
+
+        brushesType.selectedToggleProperty().addListener(e -> selectedBrush = (Color[][]) brushesType.getSelectedToggle().getUserData() );
+        resetGrid(gc, loadedPreset);
+
+        VBox canvasPane = new VBox(canvas);
+        canvasPane.setPadding(new Insets(20, 20, 0, 0));
+
+        Button exportPNG = new Button("Export PNG");
+        exportPNG.setOnAction(e -> {
+
+        });
+        Button exportEMB = new Button("Export EMB");
+        exportEMB.setOnAction(e -> {
+
+        });
+        Button importEMB = new Button("Import EMB");
+        importEMB.setOnAction(e -> {
+
+        });
+        Button resetButton = new Button("Reset");
+        resetButton.setOnAction(e -> resetGrid(gc, null));
+
+        HBox buttonPane = new HBox(exportPNG, exportEMB, importEMB);
+        buttonPane.setSpacing(10);
+        BorderPane buttonPaneRoot = new BorderPane(buttonPane);
+        buttonPaneRoot.setRight(resetButton);
+        buttonPaneRoot.setPadding(new Insets(20, 0, 0, 0));
+        canvasPane.getChildren().add(buttonPaneRoot);
+
+        canvas.setOnMouseClicked(e -> {
+            int col = (int)(e.getX() / cellSize) - 1;
+            int row = (int)(e.getY() / cellSize) - 1;
+            drawBrush(gc, selectedBrush, col * cellSize, row * cellSize, symmetrySwitch.isSelected());
+        });
 
         BorderPane root = new BorderPane();
         root.setLeft(tools);
@@ -179,20 +172,42 @@ public class EmbroideryApp extends Application {
             brushRadioButton.setSelected(true);
         }
         brushRadioButton.setToggleGroup(group);
+        brushRadioButton.setUserData(pattern);
         HBox brushTypePane = new HBox(brushCanvas, brushRadioButton);
         brushTypePane.setSpacing(20);
         brushTypePane.setAlignment(Pos.CENTER);
         return brushTypePane;
     }
 
-    private void drawGrid(GraphicsContext gc) {
+    void drawBrush(GraphicsContext gc, Color[][] brush, int startX, int startY, boolean symmetry) {
+        for (int r = 0; r < brush.length; r++) {
+            for (int c = 0; c < brush[r].length; c++) {
+                Color color = brush[r][c];
+                if (color != null) {
+                    gc.setFill(color);
+                    gc.fillRect(startX + c * 16, startY + r * 16, 16, 16);
+                    if (symmetry) {
+                        if (selectedSymmetry.equals("Horizontal")) {
+                            gc.fillRect(startX + c * 16, (cols-1)*cellSize - startY - r * 16, 16, 16);
+                        } else if (selectedSymmetry.equals("Vertical")) {
+                            gc.fillRect((rows-1)*cellSize - startX - r * 16, startY + c * 16, 16, 16);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void resetGrid(GraphicsContext gc, Color[][] preset) {
         gc.clearRect(0, 0, cols * cellSize, rows * cellSize);
         for (int row = 0; row < rows; row++) {
             for (int col = 0; col < cols; col++) {
-                Color color = grid[row][col];
-                if (color != null) {
-                    gc.setFill(color);
-                    gc.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
+                if (loadedPreset != null) {
+                    Color color = loadedPreset[row][col];
+                    if (color != null) {
+                        gc.setFill(color);
+                        gc.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
+                    }
                 }
                 gc.setStroke(Color.GRAY);
                 gc.strokeRect(col * cellSize, row * cellSize, cellSize, cellSize);
