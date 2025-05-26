@@ -7,6 +7,7 @@ import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.*;
+import javafx.scene.image.Image;
 import javafx.scene.image.PixelReader;
 import javafx.scene.image.WritableImage;
 import javafx.scene.layout.*;
@@ -21,6 +22,7 @@ import java.io.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class EmbroideryApp extends Application {
 
@@ -119,6 +121,14 @@ public class EmbroideryApp extends Application {
         root.setRight(canvasPane);
 
         Scene scene = new Scene(root, 800, 600);
+
+        InputStream iconStream = getClass().getResourceAsStream("/com/drugarybna/embroidery_ultra/icon.png");
+        if (iconStream == null) {
+            System.err.println("Icon resource not found!");
+        } else {
+            Image icon = new Image(iconStream);
+            stage.getIcons().add(icon);
+        }
 
         stage.setTitle("Embroidery Ultra by Volodymyr 'drugarybna' Stepanov");
         stage.setScene(scene);
