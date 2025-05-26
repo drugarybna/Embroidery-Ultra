@@ -51,7 +51,7 @@ public class EmbroideryApp extends Application {
 
         ComboBox<String> symmetryType = new ComboBox<>();
         symmetryType.setDisable(true);
-        symmetryType.getItems().addAll("Horizontal", "Vertical");
+        symmetryType.getItems().addAll("Horizontal", "Vertical", "Diagonal");
         symmetryType.setValue("Horizontal");
         symmetryType.setOnAction(event -> selectedSymmetry = symmetryType.getValue() );
 
@@ -277,17 +277,25 @@ public class EmbroideryApp extends Application {
                         loadedPreset[presetRow][presetCol] = col;
                     }
                     if (symmetry) {
+                        int symmX = (cols-1)*cellSize - startX - r * 16;
+                        int symmY = (rows-1)*cellSize - startY - r * 16;
                         if (selectedSymmetry.equals("Horizontal")) {
                             int mirrorRow = (rows - 1) - presetRow;
                             if (mirrorRow >= 0 && mirrorRow < loadedPreset.length) {
-                                gc.fillRect(startX + c * 16, (rows-1)*cellSize - startY - r * 16, 16, 16);
+                                gc.fillRect(startX + c * 16, symmY, 16, 16);
                                 loadedPreset[mirrorRow][presetCol] = col;
                             }
                         } else if (selectedSymmetry.equals("Vertical")) {
                             int mirrorCol = (cols - 1) - presetCol;
                             if (mirrorCol >= 0 && mirrorCol < loadedPreset[0].length) {
-                                gc.fillRect((cols-1)*cellSize - startX - r * 16, startY + c * 16, 16, 16);
+                                gc.fillRect(symmX, startY + c * 16, 16, 16);
                                 loadedPreset[presetRow][mirrorCol] = col;
+                            }
+                        } else {
+                            int mirrorRow = (rows - 1) - presetRow;
+                            int mirrorCol = (cols - 1) - presetCol;
+                            if (mirrorRow >= 0 && mirrorCol >= 0) {
+                                gc.fillRect(symmX, symmY, 16, 16);
                             }
                         }
                     }
