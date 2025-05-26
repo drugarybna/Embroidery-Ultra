@@ -7,12 +7,16 @@ import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.*;
+import javafx.scene.image.PixelReader;
+import javafx.scene.image.WritableImage;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.*;
 
 import java.util.ArrayList;
@@ -69,19 +73,26 @@ public class EmbroideryApp extends Application {
         tools.setPadding(new Insets(20, 0, 0, 20));
         tools.setSpacing(20);
 
+        Canvas gridCanvas = new Canvas(cols * cellSize, rows * cellSize);
+        GraphicsContext gcGrid = gridCanvas.getGraphicsContext2D();
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                gcGrid.setStroke(Color.LIGHTGRAY);
+                gcGrid.strokeRect(j * cellSize, i * cellSize, cellSize, cellSize);
+            }
+        }
         Canvas canvas = new Canvas(cols * cellSize, rows * cellSize);
         GraphicsContext gc = canvas.getGraphicsContext2D();
+
+        StackPane canvasStack = new StackPane(gridCanvas, canvas);
 
         brushesType.selectedToggleProperty().addListener(e -> selectedBrush = (Color[][]) brushesType.getSelectedToggle().getUserData() );
         resetGrid(gc, loadedPreset);
 
-        VBox canvasPane = new VBox(canvas);
+        VBox canvasPane = new VBox(canvasStack);
         canvasPane.setPadding(new Insets(20, 20, 0, 0));
 
-        Button exportPNG = new Button("Export PNG");
-        exportPNG.setOnAction(e -> {
-
-        });
+        Button exportPNG = getExportPNG(canvas, stage);
         Button exportEMB = getExportEMB(stage);
         Button importEMB = getImportEMB(gc, stage);
         Button resetButton = new Button("Reset");
@@ -100,7 +111,7 @@ public class EmbroideryApp extends Application {
         canvas.setOnMouseClicked(e -> {
             int col = (int)(e.getX() / cellSize) - 1;
             int row = (int)(e.getY() / cellSize) - 1;
-            drawBrush(gc, selectedBrush, col * cellSize, row * cellSize, symmetrySwitch.isSelected());
+            drawBrush(gc, selectedBrush, currentColor, col * cellSize, row * cellSize, symmetrySwitch.isSelected());
         });
 
         BorderPane root = new BorderPane();
@@ -113,6 +124,20 @@ public class EmbroideryApp extends Application {
         stage.setScene(scene);
         stage.show();
 
+    }
+
+    private Button getExportPNG(Canvas canvas, Stage stage) {
+        Button exportPNG = new Button("Export PNG");
+        exportPNG.setOnAction(e -> {
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Export PNG");
+            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("PNG Files", "*.png"));
+            File file = fileChooser.showSaveDialog(stage);
+            if (file != null) {
+                savePNG(canvas, file);
+            }
+        });
+        return exportPNG;
     }
 
     private Button getImportEMB(GraphicsContext gc, Stage stage) {
@@ -216,31 +241,31 @@ public class EmbroideryApp extends Application {
         return brushTypePane;
     }
 
-    void drawBrush(GraphicsContext gc, Color[][] brush, int startX, int startY, boolean symmetry) {
+    void drawBrush(GraphicsContext gc, Color[][] brush, Color col, int startX, int startY, boolean symmetry) {
         for (int r = 0; r < brush.length; r++) {
             for (int c = 0; c < brush[r].length; c++) {
                 Color color = brush[r][c];
                 if (color != null) {
-                    gc.setFill(color);
+                    gc.setFill(col);
                     gc.fillRect(startX + c * 16, startY + r * 16, 16, 16);
                     int presetRow = (startY / 16) + r;
                     int presetCol = (startX / 16) + c;
                     if (presetRow >= 0 && presetRow < loadedPreset.length &&
                             presetCol >= 0 && presetCol < loadedPreset[0].length) {
-                        loadedPreset[presetRow][presetCol] = color;
+                        loadedPreset[presetRow][presetCol] = col;
                     }
                     if (symmetry) {
                         if (selectedSymmetry.equals("Horizontal")) {
                             int mirrorRow = (rows - 1) - presetRow;
                             if (mirrorRow >= 0 && mirrorRow < loadedPreset.length) {
                                 gc.fillRect(startX + c * 16, (rows-1)*cellSize - startY - r * 16, 16, 16);
-                                loadedPreset[mirrorRow][presetCol] = color;
+                                loadedPreset[mirrorRow][presetCol] = col;
                             }
                         } else if (selectedSymmetry.equals("Vertical")) {
                             int mirrorCol = (cols - 1) - presetCol;
                             if (mirrorCol >= 0 && mirrorCol < loadedPreset[0].length) {
                                 gc.fillRect((cols-1)*cellSize - startX - r * 16, startY + c * 16, 16, 16);
-                                loadedPreset[presetRow][mirrorCol] = color;
+                                loadedPreset[presetRow][mirrorCol] = col;
                             }
                         }
                     }
@@ -254,8 +279,6 @@ public class EmbroideryApp extends Application {
         gc.clearRect(0, 0, cols * cellSize, rows * cellSize);
         for (int row = 0; row < rows; row++) {
             for (int col = 0; col < cols; col++) {
-                gc.setStroke(Color.GRAY);
-                gc.strokeRect(col * cellSize, row * cellSize, cellSize, cellSize);
                 if (loadedPreset != null) {
                     Color color = loadedPreset[row][col];
                     if (color != null) {
@@ -311,6 +334,24 @@ public class EmbroideryApp extends Application {
                 }
             }
             return data;
+        }
+    }
+
+    private void savePNG(Canvas canvas, File file) {
+        WritableImage fxImage = new WritableImage((int) canvas.getWidth(), (int) canvas.getHeight());
+        canvas.snapshot(null, fxImage);
+        BufferedImage bImage = new BufferedImage((int) canvas.getWidth(), (int) canvas.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        PixelReader pr = fxImage.getPixelReader();
+        for (int y = 0; y < (int) canvas.getHeight(); y++) {
+            for (int x = 0; x < (int) canvas.getWidth(); x++) {
+                int argb = pr.getArgb(x, y);
+                bImage.setRGB(x, y, argb);
+            }
+        }
+        try {
+            ImageIO.write(bImage, "png", file);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
