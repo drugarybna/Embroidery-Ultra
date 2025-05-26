@@ -53,7 +53,6 @@ public class EmbroideryApp extends Application {
         symmetryType.setDisable(true);
         symmetryType.getItems().addAll("Horizontal", "Vertical");
         symmetryType.setValue("Horizontal");
-        symmetrySwitch.setOnAction(e -> symmetryType.setDisable(!symmetrySwitch.isSelected()) );
         symmetryType.setOnAction(event -> selectedSymmetry = symmetryType.getValue() );
 
         VBox symmetryPane = new VBox(symmetrySwitch, symmetryType);
@@ -71,7 +70,24 @@ public class EmbroideryApp extends Application {
         VBox brushTypePane = new VBox(brushTypeText, brushTypeDefault, brushTypeSquare, brushTypeRhombus, brushTypeCross1, brushTypeCross2);
         brushTypePane.setSpacing(20);
 
-        VBox tools = new VBox(colorPicker, symmetryPane, brushTypePane);
+        CheckBox duplicateSwitch = new CheckBox("Duplicate");
+        duplicateSwitch.setDisable(true);
+
+        Spinner<Integer> duplicatesNum = new Spinner<>(2, 8, 2);
+        duplicatesNum.setDisable(true);
+        duplicateSwitch.setOnAction(e -> duplicatesNum.setDisable(!duplicateSwitch.isSelected()));
+
+        symmetrySwitch.setOnAction(e -> {
+            symmetryType.setDisable(!symmetrySwitch.isSelected());
+            duplicateSwitch.setSelected(false);
+            duplicateSwitch.setDisable(!symmetrySwitch.isSelected());
+            duplicatesNum.setDisable(!symmetrySwitch.isSelected());
+        });
+
+        VBox duplicatePane = new VBox(duplicateSwitch, duplicatesNum);
+        duplicatePane.setSpacing(10);
+
+        VBox tools = new VBox(colorPicker, symmetryPane, brushTypePane, duplicatePane);
         tools.setPadding(new Insets(20, 0, 0, 20));
         tools.setSpacing(20);
 
