@@ -81,7 +81,11 @@ public class EmbroideryApp extends Application {
             symmetryType.setDisable(!symmetrySwitch.isSelected());
             duplicateSwitch.setSelected(false);
             duplicateSwitch.setDisable(!symmetrySwitch.isSelected());
-            duplicatesNum.setDisable(!symmetrySwitch.isSelected());
+            if (duplicateSwitch.isSelected()) {
+                duplicatesNum.setDisable(false);
+            } else {
+                duplicatesNum.setDisable(true);
+            }
         });
 
         VBox duplicatePane = new VBox(duplicateSwitch, duplicatesNum);
@@ -129,7 +133,11 @@ public class EmbroideryApp extends Application {
         canvas.setOnMouseClicked(e -> {
             int col = (int)(e.getX() / cellSize) - 1;
             int row = (int)(e.getY() / cellSize) - 1;
-            drawBrush(gc, selectedBrush, currentColor, col * cellSize, row * cellSize, symmetrySwitch.isSelected());
+            int dup = 1;
+            if (duplicateSwitch.isSelected()) {
+                dup = duplicatesNum.getValue();
+            }
+            drawBrush(gc, selectedBrush, currentColor, col * cellSize, row * cellSize, symmetrySwitch.isSelected(), dup);
         });
 
         BorderPane root = new BorderPane();
@@ -263,47 +271,108 @@ public class EmbroideryApp extends Application {
         return brushTypePane;
     }
 
-    void drawBrush(GraphicsContext gc, Color[][] brush, Color col, int startX, int startY, boolean symmetry) {
+    void drawBrush(GraphicsContext gc, Color[][] brush, Color col,
+                   int startX, int startY, boolean symmetry, int dup) {
+        int brushWidth = brush[0].length * cellSize;
+        int brushHeight = brush.length * cellSize;
+        for (int i = 0; i < dup; i++) {
+            int offsetX = calculateOffsetX(i, brushWidth);
+            int offsetY = calculateOffsetY(i, brushHeight);
+            drawBrushCopy(gc, brush, col,
+                    startX + offsetX,
+                    startY + offsetY);
+        }
+        if (symmetry) {
+            drawSymmetryCopies(gc, brush, col, startX, startY, dup);
+        }
+    }
+
+    private int calculateOffsetX(int copyIndex, int brushWidth) {
+        return switch (selectedSymmetry) {
+            case "Vertical", "Diagonal" -> copyIndex * brushWidth;
+            default -> 0;
+        };
+    }
+
+    private int calculateOffsetY(int copyIndex, int brushHeight) {
+        return switch (selectedSymmetry) {
+            case "Horizontal", "Diagonal" -> copyIndex * brushHeight;
+            default -> 0;
+        };
+    }
+
+    private void drawSymmetryCopies(GraphicsContext gc, Color[][] brush, Color col,
+                                    int startX, int startY, int dup) {
+        int patternWidth = dup * brush[0].length * cellSize;
+        int patternHeight = dup * brush.length * cellSize;
+        int endX = startX + patternWidth;
+        int endY = startY + patternHeight;
+        switch (selectedSymmetry) {
+            case "Horizontal" -> mirrorHorizontal(gc, brush, col, startX, startY, endX, endY, dup);
+            case "Vertical" -> mirrorVertical(gc, brush, col, startX, startY, endX, endY, dup);
+            case "Diagonal" -> mirrorDiagonal(gc, brush, col, startX, startY, endX, endY, dup);
+        }
+    }
+
+    private void mirrorHorizontal(GraphicsContext gc, Color[][] brush, Color col,
+                                  int startX, int startY, int endX, int endY, int dup) {
+        int mirrorY = (rows * cellSize) - startY - (endY - startY);
+        drawPatternWithDuplicates(gc, brush, col, startX, mirrorY, dup);
+    }
+
+    private void mirrorVertical(GraphicsContext gc, Color[][] brush, Color col,
+                                int startX, int startY, int endX, int endY, int dup) {
+        int mirrorX = (cols * cellSize) - startX - (endX - startX);
+        drawPatternWithDuplicates(gc, brush, col, mirrorX, startY, dup);
+    }
+
+    private void mirrorDiagonal(GraphicsContext gc, Color[][] brush, Color col,
+                                int startX, int startY, int endX, int endY, int dup) {
+        int mirrorX = (cols * cellSize) - startX - (endX - startX);
+        int mirrorY = (rows * cellSize) - startY - (endY - startY);
+        drawPatternWithDuplicates(gc, brush, col, mirrorX, mirrorY, dup);
+    }
+
+    private void drawPatternWithDuplicates(GraphicsContext gc, Color[][] brush, Color col,
+                                           int baseX, int baseY, int dup) {
+        int brushWidth = brush[0].length * cellSize;
+        int brushHeight = brush.length * cellSize;
+        for (int i = 0; i < dup; i++) {
+            int offsetX = calculateOffsetX(i, brushWidth);
+            int offsetY = calculateOffsetY(i, brushHeight);
+            drawBrushCopy(gc, brush, col,
+                    baseX + offsetX,
+                    baseY + offsetY);
+        }
+    }
+
+    private void drawBrushCopy(GraphicsContext gc, Color[][] brush, Color col, int baseX, int baseY) {
         for (int r = 0; r < brush.length; r++) {
             for (int c = 0; c < brush[r].length; c++) {
-                Color color = brush[r][c];
-                if (color != null) {
-                    gc.setFill(col);
-                    gc.fillRect(startX + c * 16, startY + r * 16, 16, 16);
-                    int presetRow = (startY / 16) + r;
-                    int presetCol = (startX / 16) + c;
-                    if (presetRow >= 0 && presetRow < loadedPreset.length &&
-                            presetCol >= 0 && presetCol < loadedPreset[0].length) {
-                        loadedPreset[presetRow][presetCol] = col;
-                    }
-                    if (symmetry) {
-                        int symmX = (cols-1)*cellSize - startX - r * 16;
-                        int symmY = (rows-1)*cellSize - startY - r * 16;
-                        if (selectedSymmetry.equals("Horizontal")) {
-                            int mirrorRow = (rows - 1) - presetRow;
-                            if (mirrorRow >= 0 && mirrorRow < loadedPreset.length) {
-                                gc.fillRect(startX + c * 16, symmY, 16, 16);
-                                loadedPreset[mirrorRow][presetCol] = col;
-                            }
-                        } else if (selectedSymmetry.equals("Vertical")) {
-                            int mirrorCol = (cols - 1) - presetCol;
-                            if (mirrorCol >= 0 && mirrorCol < loadedPreset[0].length) {
-                                gc.fillRect(symmX, startY + c * 16, 16, 16);
-                                loadedPreset[presetRow][mirrorCol] = col;
-                            }
-                        } else {
-                            int mirrorRow = (rows - 1) - presetRow;
-                            int mirrorCol = (cols - 1) - presetCol;
-                            if (mirrorRow >= 0 && mirrorCol >= 0) {
-                                gc.fillRect(symmX, symmY, 16, 16);
-                            }
-                        }
+                if (brush[r][c] != null) {
+                    int x = baseX + c * cellSize;
+                    int y = baseY + r * cellSize;
+                    if (isWithinBounds(x, y)) {
+                        gc.setFill(col);
+                        gc.fillRect(x, y, cellSize, cellSize);
+                        updatePreset(x, y, col);
                     }
                 }
             }
         }
     }
+    private boolean isWithinBounds(int x, int y) {
+        return x >= 0 && x < cols * cellSize &&
+                y >= 0 && y < rows * cellSize;
+    }
 
+    private void updatePreset(int x, int y, Color color) {
+        int row = y / cellSize;
+        int col = x / cellSize;
+        if (row >= 0 && row < rows && col >= 0 && col < cols) {
+            loadedPreset[row][col] = color;
+        }
+    }
 
     private void resetGrid(GraphicsContext gc, Color[][] preset) {
         gc.clearRect(0, 0, cols * cellSize, rows * cellSize);
