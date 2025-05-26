@@ -28,7 +28,7 @@ public class EmbroideryApp extends Application {
     private final int cols = 32;
     private final int cellSize = 16;
 
-    Color[][] loadedPreset = new Color[rows][cols];
+    Color[][] loadedPreset = loadEMB(new File("src/main/resources/com/drugarybna/embroidery_ultra/Vova.emb"));
     Color currentColor = Color.RED;
 
     Color[][] selectedBrush = {
@@ -148,12 +148,8 @@ public class EmbroideryApp extends Application {
             fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Embroidery Picture", "*.emb"));
             File file = fileChooser.showOpenDialog(stage);
             if (file != null) {
-                try {
-                    loadedPreset = loadEMB(file);
-                    resetGrid(gc, loadedPreset);
-                } catch (IOException ex) {
-                    throw new RuntimeException(ex);
-                }
+                loadedPreset = loadEMB(file);
+                resetGrid(gc, loadedPreset);
             }
         });
         return importEMB;
@@ -312,7 +308,7 @@ public class EmbroideryApp extends Application {
         }
     }
 
-    private Color[][] loadEMB(File file) throws IOException {
+    private Color[][] loadEMB(File file) {
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             String[] size = reader.readLine().split(" ");
             int rows = Integer.parseInt(size[0]);
@@ -334,7 +330,10 @@ public class EmbroideryApp extends Application {
                 }
             }
             return data;
+        } catch (IOException e) {
+            e.printStackTrace();
         }
+        return null;
     }
 
     private void savePNG(Canvas canvas, File file) {
