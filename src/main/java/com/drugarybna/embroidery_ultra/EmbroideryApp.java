@@ -10,7 +10,10 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+
+import java.io.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,7 +24,7 @@ public class EmbroideryApp extends Application {
     private final int cols = 32;
     private final int cellSize = 16;
 
-    Color[][] loadedPreset;
+    Color[][] loadedPreset = new Color[rows][cols];
     Color currentColor = Color.RED;
 
     Color[][] selectedBrush = {
@@ -79,16 +82,13 @@ public class EmbroideryApp extends Application {
         exportPNG.setOnAction(e -> {
 
         });
-        Button exportEMB = new Button("Export EMB");
-        exportEMB.setOnAction(e -> {
-
-        });
-        Button importEMB = new Button("Import EMB");
-        importEMB.setOnAction(e -> {
-
-        });
+        Button exportEMB = getExportEMB(stage);
+        Button importEMB = getImportEMB(gc, stage);
         Button resetButton = new Button("Reset");
-        resetButton.setOnAction(e -> resetGrid(gc, null));
+        resetButton.setOnAction(e -> {
+            loadedPreset = new Color[rows][cols];
+            resetGrid(gc, null);
+        });
 
         HBox buttonPane = new HBox(exportPNG, exportEMB, importEMB);
         buttonPane.setSpacing(10);
@@ -113,6 +113,43 @@ public class EmbroideryApp extends Application {
         stage.setScene(scene);
         stage.show();
 
+    }
+
+    private Button getImportEMB(GraphicsContext gc, Stage stage) {
+        Button importEMB = new Button("Import EMB");
+        importEMB.setOnAction(e -> {
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Import EMB");
+            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Embroidery Picture", "*.emb"));
+            File file = fileChooser.showOpenDialog(stage);
+            if (file != null) {
+                try {
+                    loadedPreset = loadEMB(file);
+                    resetGrid(gc, loadedPreset);
+                } catch (IOException ex) {
+                    throw new RuntimeException(ex);
+                }
+            }
+        });
+        return importEMB;
+    }
+
+    private Button getExportEMB(Stage stage) {
+        Button exportEMB = new Button("Export EMB");
+        exportEMB.setOnAction(e -> {
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Export EMB");
+            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Embroidery Picture", "*.emb"));
+            File file = fileChooser.showSaveDialog(stage);
+            if (file != null) {
+                try {
+                    saveEMB(loadedPreset, file);
+                } catch (IOException ex) {
+                    throw new RuntimeException(ex);
+                }
+            }
+        });
+        return exportEMB;
     }
 
     private Color[][] getBrush(int type) {
@@ -186,11 +223,25 @@ public class EmbroideryApp extends Application {
                 if (color != null) {
                     gc.setFill(color);
                     gc.fillRect(startX + c * 16, startY + r * 16, 16, 16);
+                    int presetRow = (startY / 16) + r;
+                    int presetCol = (startX / 16) + c;
+                    if (presetRow >= 0 && presetRow < loadedPreset.length &&
+                            presetCol >= 0 && presetCol < loadedPreset[0].length) {
+                        loadedPreset[presetRow][presetCol] = color;
+                    }
                     if (symmetry) {
                         if (selectedSymmetry.equals("Horizontal")) {
-                            gc.fillRect(startX + c * 16, (cols-1)*cellSize - startY - r * 16, 16, 16);
+                            int mirrorRow = (rows - 1) - presetRow;
+                            if (mirrorRow >= 0 && mirrorRow < loadedPreset.length) {
+                                gc.fillRect(startX + c * 16, (rows-1)*cellSize - startY - r * 16, 16, 16);
+                                loadedPreset[mirrorRow][presetCol] = color;
+                            }
                         } else if (selectedSymmetry.equals("Vertical")) {
-                            gc.fillRect((rows-1)*cellSize - startX - r * 16, startY + c * 16, 16, 16);
+                            int mirrorCol = (cols - 1) - presetCol;
+                            if (mirrorCol >= 0 && mirrorCol < loadedPreset[0].length) {
+                                gc.fillRect((cols-1)*cellSize - startX - r * 16, startY + c * 16, 16, 16);
+                                loadedPreset[presetRow][mirrorCol] = color;
+                            }
                         }
                     }
                 }
@@ -198,10 +249,13 @@ public class EmbroideryApp extends Application {
         }
     }
 
+
     private void resetGrid(GraphicsContext gc, Color[][] preset) {
         gc.clearRect(0, 0, cols * cellSize, rows * cellSize);
         for (int row = 0; row < rows; row++) {
             for (int col = 0; col < cols; col++) {
+                gc.setStroke(Color.GRAY);
+                gc.strokeRect(col * cellSize, row * cellSize, cellSize, cellSize);
                 if (loadedPreset != null) {
                     Color color = loadedPreset[row][col];
                     if (color != null) {
@@ -209,9 +263,54 @@ public class EmbroideryApp extends Application {
                         gc.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
                     }
                 }
-                gc.setStroke(Color.GRAY);
-                gc.strokeRect(col * cellSize, row * cellSize, cellSize, cellSize);
             }
+        }
+    }
+
+    private void saveEMB(Color[][] data, File file) throws IOException {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
+            int rows = data.length;
+            int cols = data[0].length;
+            writer.write(rows + " " + cols);
+            writer.newLine();
+            for (Color[] row : data) {
+                for (Color color : row) {
+                    if (color == null) {
+                        writer.write("null ");
+                    } else {
+                        int r = (int) (color.getRed() * 255);
+                        int g = (int) (color.getGreen() * 255);
+                        int b = (int) (color.getBlue() * 255);
+                        writer.write(r + "," + g + "," + b + " ");
+                    }
+                }
+                writer.newLine();
+            }
+        }
+    }
+
+    private Color[][] loadEMB(File file) throws IOException {
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String[] size = reader.readLine().split(" ");
+            int rows = Integer.parseInt(size[0]);
+            int cols = Integer.parseInt(size[1]);
+            Color[][] data = new Color[rows][cols];
+            for (int r = 0; r < rows; r++) {
+                String[] tokens = reader.readLine().split(" ");
+                for (int c = 0; c < cols; c++) {
+                    String token = tokens[c];
+                    if (token.equals("null")) {
+                        data[r][c] = null;
+                    } else {
+                        String[] rgb = token.split(",");
+                        int red = Integer.parseInt(rgb[0]);
+                        int green = Integer.parseInt(rgb[1]);
+                        int blue = Integer.parseInt(rgb[2]);
+                        data[r][c] = Color.rgb(red, green, blue);
+                    }
+                }
+            }
+            return data;
         }
     }
 
